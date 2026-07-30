@@ -1,0 +1,43 @@
+{
+  "name": "lifely",
+  "version": "0.1.0",
+  "description": "Local-first desktop habit and task tracker",
+  "author": "Aevo Labs",
+  "private": true,
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev:next": "next dev",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "dev:electron": "npm run build:electron && wait-on http-get://localhost:3000 && electron .",
+    "dev": "npm run build && electron .",
+    "start": "npm run build && electron .",
+    "build:next": "next build",
+    "build": "npm run build:next && npm run build:electron",
+    "postinstall": "electron-builder install-app-deps",
+    "rebuild": "electron-rebuild",
+    "generate-icons": "node scripts/generate-icons.js",
+    "dist": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.0",
+    "next": "^14.2.24",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.6.1",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^20.14.10",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^31.3.0",
+    "electron-builder": "24.13.3",
+    "playwright": "^1.62.0",
+    "png2icons": "^2.0.1",
+    "sharp": "^0.33.5",
+    "typescript": "^5.5.4",
+    "wait-on": "^7.2.0"
+  }
+}

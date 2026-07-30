@@ -1,0 +1,43 @@
+appId: org.aevolabs.lifely
+productName: Lifely
+copyright: Copyright © 2026 Aevo Labs
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - dist-electron/**/*
+  - out/**/*
+  - package.json
+
+icon: build/icons/icon
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icons/icon.ico
+  sign: scripts/custom-sign.js
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Lifely
+  installerIcon: build/icons/icon.ico
+  uninstallerIcon: build/icons/icon.ico
+
+mac:
+  target:
+    - target: dmg
+  icon: build/icons/icon.icns
+  category: public.app-category.productivity
+
+linux:
+  target:
+    - target: AppImage
+  icon: build/icons/icon.png
+  category: Utility
