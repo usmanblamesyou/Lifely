@@ -19,7 +19,7 @@ win:
       arch:
         - x64
   icon: build/icons/icon.ico
-  sign: scripts/custom-sign.js
+  sign: null
 
 nsis:
   oneClick: false

@@ -2,20 +2,25 @@
 
 import React, { useState } from 'react';
 import {
+  Habit,
   HabitType,
   RepeatType,
   GoalPeriod,
   TimeOfDay,
   EndCondition,
   CreateHabitInput,
+  UpdateHabitInput,
 } from '../../types/habit';
 import CustomSelect from '../ui/CustomSelect';
+import ColorPicker from '../ui/ColorPicker';
 
 interface NewHabitFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   initialStartDate?: string;
+  initialTimeOfDay?: TimeOfDay[];
+  editHabit?: Habit;
 }
 
 const WEEKDAYS = [
@@ -57,8 +62,13 @@ export default function NewHabitForm({
   onClose,
   onSuccess,
   initialStartDate,
+  initialTimeOfDay,
+  editHabit,
 }: NewHabitFormProps) {
+  const isEditMode = Boolean(editHabit);
+
   const getTodayString = () => {
+    if (editHabit) return editHabit.start_date;
     if (initialStartDate) return initialStartDate;
     const now = new Date();
     const year = now.getFullYear();
@@ -67,19 +77,38 @@ export default function NewHabitForm({
     return `${year}-${month}-${day}`;
   };
 
-  const [name, setName] = useState('');
-  const [type, setType] = useState<HabitType>('build');
-  const [repeatType, setRepeatType] = useState<RepeatType>('daily');
-  const [repeatDays, setRepeatDays] = useState<number[]>([]);
-  const [monthlyDay, setMonthlyDay] = useState<number>(1);
-  const [goalCount, setGoalCount] = useState<number>(1);
-  const [goalPeriod, setGoalPeriod] = useState<GoalPeriod>('day');
-  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay[]>([]);
+  const getInitialRepeatDays = (): number[] => {
+    if (editHabit) {
+      if (editHabit.repeat_type === 'monthly' && Array.isArray(editHabit.repeat_days)) return [];
+      return Array.isArray(editHabit.repeat_days) ? editHabit.repeat_days : [];
+    }
+    return [];
+  };
+
+  const getInitialMonthlyDay = (): number => {
+    if (editHabit && editHabit.repeat_type === 'monthly' && Array.isArray(editHabit.repeat_days) && editHabit.repeat_days.length > 0) {
+      return editHabit.repeat_days[0];
+    }
+    return 1;
+  };
+
+  const [type, setType] = useState<HabitType>(editHabit?.type ?? 'build');
+  const [repeatType, setRepeatType] = useState<RepeatType>(editHabit?.repeat_type ?? 'daily');
+  const [repeatDays, setRepeatDays] = useState<number[]>(getInitialRepeatDays());
+  const [monthlyDay, setMonthlyDay] = useState<number>(getInitialMonthlyDay());
+  const [goalCount, setGoalCount] = useState<number>(editHabit?.goal_count ?? 1);
+  const [goalPeriod, setGoalPeriod] = useState<GoalPeriod>(editHabit?.goal_period ?? 'day');
+  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay[]>(
+    editHabit?.time_of_day ?? initialTimeOfDay ?? []
+  );
   const [startDate, setStartDate] = useState(getTodayString());
-  const [endCondition, setEndCondition] = useState<EndCondition>('never');
-  const [endConditionValue, setEndConditionValue] = useState<string>('');
-  const [reminderTimes, setReminderTimes] = useState<string[]>([]);
-  const [checklistItems, setChecklistItems] = useState<string[]>([]);
+  const [endCondition, setEndCondition] = useState<EndCondition>(editHabit?.end_condition ?? 'never');
+  const [endConditionValue, setEndConditionValue] = useState<string>(editHabit?.end_condition_value ?? '');
+  const [reminderTimes, setReminderTimes] = useState<string[]>(editHabit?.reminder_times ?? []);
+  const [checklistItems, setChecklistItems] = useState<string[]>(
+    editHabit?.checklist_items?.map((ci) => ci.label) ?? []
+  );
+  const [color, setColor] = useState<string | null>(editHabit?.color ?? null);
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -137,10 +166,6 @@ export default function NewHabitForm({
   const validate = (): boolean => {
     const newErrors: { [key: string]: string } = {};
 
-    if (!name.trim()) {
-      newErrors.name = 'Habit name is required';
-    }
-
     if (repeatType === 'weekly' && repeatDays.length === 0) {
       newErrors.repeatDays = 'At least one day must be selected for weekly repeat';
     }
@@ -168,30 +193,59 @@ export default function NewHabitForm({
       finalRepeatDays = [monthlyDay];
     }
 
-    const payload: CreateHabitInput = {
-      name: name.trim(),
-      type,
-      repeat_type: repeatType,
-      repeat_days: finalRepeatDays,
-      goal_count: Number(goalCount) || 1,
-      goal_period: goalPeriod,
-      time_of_day: timeOfDay.length > 0 ? timeOfDay : null,
-      area_id: null, // Area field removed; sent as null
-      start_date: startDate,
-      end_condition: endCondition,
-      end_condition_value: endCondition !== 'never' ? endConditionValue : null,
-      reminder_times: reminderTimes.length > 0 ? reminderTimes : null,
-      checklist_items: checklistItems.filter((i) => i.trim().length > 0),
-    };
-
     try {
-      if (typeof window !== 'undefined' && window.electronAPI?.habits) {
-        await window.electronAPI.habits.create(payload);
+      if (isEditMode && editHabit) {
+        // Edit mode — name is NOT sent
+        const payload: UpdateHabitInput = {
+          habit_id: editHabit.id,
+          repeat_type: repeatType,
+          repeat_days: finalRepeatDays,
+          goal_count: Number(goalCount) || 1,
+          goal_period: goalPeriod,
+          time_of_day: timeOfDay.length > 0 ? timeOfDay : null,
+          start_date: startDate,
+          end_condition: endCondition,
+          end_condition_value: endCondition !== 'never' ? endConditionValue : null,
+          reminder_times: reminderTimes.length > 0 ? reminderTimes : null,
+          checklist_items: checklistItems.filter((i) => i.trim().length > 0),
+          color,
+        };
+        if (typeof window !== 'undefined' && window.electronAPI?.habits) {
+          await window.electronAPI.habits.update(payload);
+        }
+      } else {
+        // Create mode
+        const [name_unused, ...rest] = ['']; // name is captured from a separate input below
+        const nameInput = (document.getElementById('habit-name-input') as HTMLInputElement)?.value?.trim();
+        if (!nameInput) {
+          setErrors({ name: 'Habit name is required' });
+          setIsSaving(false);
+          return;
+        }
+        const payload: CreateHabitInput = {
+          name: nameInput,
+          type,
+          repeat_type: repeatType,
+          repeat_days: finalRepeatDays,
+          goal_count: Number(goalCount) || 1,
+          goal_period: goalPeriod,
+          time_of_day: timeOfDay.length > 0 ? timeOfDay : null,
+          area_id: null,
+          start_date: startDate,
+          end_condition: endCondition,
+          end_condition_value: endCondition !== 'never' ? endConditionValue : null,
+          reminder_times: reminderTimes.length > 0 ? reminderTimes : null,
+          checklist_items: checklistItems.filter((i) => i.trim().length > 0),
+          color,
+        };
+        if (typeof window !== 'undefined' && window.electronAPI?.habits) {
+          await window.electronAPI.habits.create(payload);
+        }
       }
       onSuccess();
       onClose();
     } catch (err) {
-      console.error('Failed to create habit:', err);
+      console.error('Failed to save habit:', err);
       setErrors({ submit: 'Failed to save habit. Please try again.' });
     } finally {
       setIsSaving(false);
@@ -202,7 +256,7 @@ export default function NewHabitForm({
     <div className="modal-overlay anim-fade-in">
       <div className="modal-content anim-scale-in">
         <div className="modal-header">
-          <h2 className="modal-title">New Habit</h2>
+          <h2 className="modal-title">{isEditMode ? 'Edit Habit' : 'New Habit'}</h2>
           <button type="button" onClick={onClose} className="modal-close-btn pressable">
             ✕
           </button>
@@ -213,36 +267,53 @@ export default function NewHabitForm({
 
           {/* Name */}
           <div className="form-group">
-            <label className="form-label">Habit Name *</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Morning Meditation"
-              className={`form-input ${errors.name ? 'input-error' : ''}`}
-            />
-            {errors.name && <span className="error-text">{errors.name}</span>}
+            <label className="form-label">Habit Name {!isEditMode && '*'}</label>
+            {isEditMode ? (
+              <>
+                <div className="readonly-field">{editHabit!.name}</div>
+                <span className="error-text" style={{ marginTop: 4 }}>Habit name cannot be changed</span>
+              </>
+            ) : (
+              <>
+                <input
+                  id="habit-name-input"
+                  type="text"
+                  placeholder="e.g. Morning Meditation"
+                  className={`form-input ${errors.name ? 'input-error' : ''}`}
+                  defaultValue=""
+                />
+                {errors.name && <span className="error-text">{errors.name}</span>}
+              </>
+            )}
           </div>
 
-          {/* Type */}
-          <div className="form-group">
-            <label className="form-label">Habit Type</label>
-            <div className="toggle-group">
-              <button
-                type="button"
-                className={`toggle-btn build pressable ${type === 'build' ? 'active' : ''}`}
-                onClick={() => setType('build')}
-              >
-                Build
-              </button>
-              <button
-                type="button"
-                className={`toggle-btn break pressable ${type === 'break' ? 'active' : ''}`}
-                onClick={() => setType('break')}
-              >
-                Break
-              </button>
+          {/* Type — read-only in edit mode */}
+          {!isEditMode && (
+            <div className="form-group">
+              <label className="form-label">Habit Type</label>
+              <div className="toggle-group">
+                <button
+                  type="button"
+                  className={`toggle-btn build pressable ${type === 'build' ? 'active' : ''}`}
+                  onClick={() => setType('build')}
+                >
+                  Build
+                </button>
+                <button
+                  type="button"
+                  className={`toggle-btn break pressable ${type === 'break' ? 'active' : ''}`}
+                  onClick={() => setType('break')}
+                >
+                  Break
+                </button>
+              </div>
             </div>
+          )}
+
+          {/* Color */}
+          <div className="form-group">
+            <label className="form-label">Color</label>
+            <ColorPicker value={color} onChange={setColor} />
           </div>
 
           {/* Repeat */}
@@ -451,7 +522,7 @@ export default function NewHabitForm({
               Cancel
             </button>
             <button type="submit" className="btn-primary hoverable" disabled={isSaving}>
-              {isSaving ? 'Saving...' : 'Save Habit'}
+              {isSaving ? 'Saving...' : isEditMode ? 'Save Changes' : 'Save Habit'}
             </button>
           </div>
         </form>

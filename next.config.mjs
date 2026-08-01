@@ -4,6 +4,8 @@ import path from 'path';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
+  images: { unoptimized: true },
+  assetPrefix: './',
   webpack: (config, { dev }) => {
     if (dev) {
       config.cache = false;

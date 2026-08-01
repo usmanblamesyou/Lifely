@@ -2,17 +2,22 @@
 
 import React, { useState } from 'react';
 import {
+  Task,
   TaskPriority,
   TaskRepeatType,
   CreateTaskInput,
+  UpdateTaskInput,
 } from '../../types/task';
 import CustomSelect from '../ui/CustomSelect';
+import ColorPicker from '../ui/ColorPicker';
 
 interface NewTaskFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   initialDueDate?: string;
+  initialDueTime?: string;
+  editTask?: Task;
 }
 
 const WEEKDAYS = [
@@ -44,8 +49,13 @@ export default function NewTaskForm({
   onClose,
   onSuccess,
   initialDueDate,
+  initialDueTime,
+  editTask,
 }: NewTaskFormProps) {
+  const isEditMode = Boolean(editTask);
+
   const getTodayString = () => {
+    if (editTask) return editTask.due_date;
     if (initialDueDate) return initialDueDate;
     const now = new Date();
     const year = now.getFullYear();
@@ -54,15 +64,29 @@ export default function NewTaskForm({
     return `${year}-${month}-${day}`;
   };
 
-  const [title, setTitle] = useState('');
-  const [notes, setNotes] = useState('');
+  const getInitialRepeatDays = (): number[] => {
+    if (editTask && Array.isArray(editTask.repeat_days)) return editTask.repeat_days;
+    return [];
+  };
+
+  const getInitialMonthlyDay = (): number => {
+    if (editTask && editTask.repeat_type === 'monthly' && Array.isArray(editTask.repeat_days) && editTask.repeat_days.length > 0) {
+      return editTask.repeat_days[0];
+    }
+    return 1;
+  };
+
+  const [notes, setNotes] = useState(editTask?.notes ?? '');
   const [dueDate, setDueDate] = useState(getTodayString());
-  const [dueTime, setDueTime] = useState('');
-  const [priority, setPriority] = useState<string>('none');
-  const [repeatType, setRepeatType] = useState<TaskRepeatType>('none');
-  const [repeatDays, setRepeatDays] = useState<number[]>([]);
-  const [monthlyDay, setMonthlyDay] = useState<number>(1);
-  const [checklistItems, setChecklistItems] = useState<string[]>([]);
+  const [dueTime, setDueTime] = useState(editTask?.due_time ?? initialDueTime ?? '');
+  const [priority, setPriority] = useState<string>(editTask?.priority ?? 'none');
+  const [repeatType, setRepeatType] = useState<TaskRepeatType>(editTask?.repeat_type ?? 'none');
+  const [repeatDays, setRepeatDays] = useState<number[]>(getInitialRepeatDays());
+  const [monthlyDay, setMonthlyDay] = useState<number>(getInitialMonthlyDay());
+  const [checklistItems, setChecklistItems] = useState<string[]>(
+    editTask?.checklist_json ?? []
+  );
+  const [color, setColor] = useState<string | null>(editTask?.color ?? null);
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -96,8 +120,11 @@ export default function NewTaskForm({
   const validate = (): boolean => {
     const newErrors: { [key: string]: string } = {};
 
-    if (!title.trim()) {
-      newErrors.title = 'Task title is required';
+    if (!isEditMode) {
+      const titleInput = (document.getElementById('task-title-input') as HTMLInputElement)?.value?.trim();
+      if (!titleInput) {
+        newErrors.title = 'Task title is required';
+      }
     }
 
     if (repeatType === 'weekly' && repeatDays.length === 0) {
@@ -127,28 +154,45 @@ export default function NewTaskForm({
       finalRepeatDays = [monthlyDay];
     }
 
-    const finalPriority: TaskPriority =
-      priority === 'none' ? null : (priority as TaskPriority);
-
-    const payload: CreateTaskInput = {
-      title: title.trim(),
-      notes: notes.trim() ? notes.trim() : null,
-      due_date: dueDate,
-      due_time: dueTime.trim() ? dueTime.trim() : null,
-      priority: finalPriority,
-      repeat_type: repeatType,
-      repeat_days: finalRepeatDays,
-      checklist_items: checklistItems.filter((i) => i.trim().length > 0),
-    };
+    const finalPriority: TaskPriority = priority === 'none' ? null : (priority as TaskPriority);
 
     try {
-      if (typeof window !== 'undefined' && window.electronAPI?.tasks) {
-        await window.electronAPI.tasks.create(payload);
+      if (isEditMode && editTask) {
+        const payload: UpdateTaskInput = {
+          task_id: editTask.id,
+          notes: notes.trim() ? notes.trim() : null,
+          due_date: dueDate,
+          due_time: dueTime.trim() ? dueTime.trim() : null,
+          priority: finalPriority,
+          repeat_type: repeatType,
+          repeat_days: finalRepeatDays,
+          checklist_items: checklistItems.filter((i) => i.trim().length > 0),
+          color,
+        };
+        if (typeof window !== 'undefined' && window.electronAPI?.tasks) {
+          await window.electronAPI.tasks.update(payload);
+        }
+      } else {
+        const titleInput = (document.getElementById('task-title-input') as HTMLInputElement)?.value?.trim() ?? '';
+        const payload: CreateTaskInput = {
+          title: titleInput,
+          notes: notes.trim() ? notes.trim() : null,
+          due_date: dueDate,
+          due_time: dueTime.trim() ? dueTime.trim() : null,
+          priority: finalPriority,
+          repeat_type: repeatType,
+          repeat_days: finalRepeatDays,
+          checklist_items: checklistItems.filter((i) => i.trim().length > 0),
+          color,
+        };
+        if (typeof window !== 'undefined' && window.electronAPI?.tasks) {
+          await window.electronAPI.tasks.create(payload);
+        }
       }
       onSuccess();
       onClose();
     } catch (err) {
-      console.error('Failed to create task:', err);
+      console.error('Failed to save task:', err);
       setErrors({ submit: 'Failed to save task. Please try again.' });
     } finally {
       setIsSaving(false);
@@ -159,7 +203,7 @@ export default function NewTaskForm({
     <div className="modal-overlay anim-fade-in">
       <div className="modal-content anim-scale-in">
         <div className="modal-header">
-          <h2 className="modal-title">New Task</h2>
+          <h2 className="modal-title">{isEditMode ? 'Edit Task' : 'New Task'}</h2>
           <button type="button" onClick={onClose} className="modal-close-btn pressable">
             ✕
           </button>
@@ -170,15 +214,30 @@ export default function NewTaskForm({
 
           {/* Title */}
           <div className="form-group">
-            <label className="form-label">Task Title *</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Prepare presentation slides"
-              className={`form-input ${errors.title ? 'input-error' : ''}`}
-            />
-            {errors.title && <span className="error-text">{errors.title}</span>}
+            <label className="form-label">Task Title {!isEditMode && '*'}</label>
+            {isEditMode ? (
+              <>
+                <div className="readonly-field">{editTask!.title}</div>
+                <span className="error-text" style={{ marginTop: 4 }}>Task title cannot be changed</span>
+              </>
+            ) : (
+              <>
+                <input
+                  id="task-title-input"
+                  type="text"
+                  placeholder="e.g. Prepare presentation slides"
+                  className={`form-input ${errors.title ? 'input-error' : ''}`}
+                  defaultValue=""
+                />
+                {errors.title && <span className="error-text">{errors.title}</span>}
+              </>
+            )}
+          </div>
+
+          {/* Color */}
+          <div className="form-group">
+            <label className="form-label">Color</label>
+            <ColorPicker value={color} onChange={setColor} />
           </div>
 
           {/* Notes */}
@@ -316,7 +375,7 @@ export default function NewTaskForm({
               Cancel
             </button>
             <button type="submit" className="btn-primary hoverable" disabled={isSaving}>
-              {isSaving ? 'Saving...' : 'Save Task'}
+              {isSaving ? 'Saving...' : isEditMode ? 'Save Changes' : 'Save Task'}
             </button>
           </div>
         </form>

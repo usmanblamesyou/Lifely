@@ -59,6 +59,12 @@ export function initDatabase(): Database.Database {
   // Migration block for journal_entries table columns
   try { dbInstance.exec('ALTER TABLE journal_entries ADD COLUMN pin_hash TEXT'); } catch {}
 
+  // Migration block for position & color columns
+  try { dbInstance.exec('ALTER TABLE habits ADD COLUMN position INTEGER NOT NULL DEFAULT 0'); } catch {}
+  try { dbInstance.exec('ALTER TABLE habits ADD COLUMN color TEXT'); } catch {}
+  try { dbInstance.exec('ALTER TABLE tasks ADD COLUMN position INTEGER NOT NULL DEFAULT 0'); } catch {}
+  try { dbInstance.exec('ALTER TABLE tasks ADD COLUMN color TEXT'); } catch {}
+
   return dbInstance;
 }
 

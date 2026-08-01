@@ -44,6 +44,8 @@ export interface Habit {
   checklist_items: ChecklistItem[];
   log: Pick<HabitLog, 'id' | 'status' | 'count' | 'note'> | null;
   current_streak?: number;
+  position: number;
+  color: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -81,6 +83,22 @@ export interface CreateHabitInput {
   end_condition_value: string | null;
   reminder_times: string[] | null;
   checklist_items: string[];
+  color?: string | null;
+}
+
+export interface UpdateHabitInput {
+  habit_id: number;
+  repeat_type: RepeatType;
+  repeat_days: number[] | null;
+  goal_count: number;
+  goal_period: GoalPeriod;
+  time_of_day: TimeOfDay[] | null;
+  start_date: string;
+  end_condition: EndCondition;
+  end_condition_value: string | null;
+  reminder_times: string[] | null;
+  checklist_items: string[];
+  color: string | null;
 }
 
 export interface LogHabitInput {

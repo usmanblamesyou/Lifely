@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import HabitRow from '../../components/habits/HabitRow';
+import HabitRow from '../habits/HabitRow';
+import NewHabitForm from '../habits/NewHabitForm';
 import { Habit, HabitType } from '../../types/habit';
 
-export default function HabitsPage() {
+export default function HabitsView() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [editHabit, setEditHabit] = useState<Habit | null>(null);
 
   // Filters
   const [typeFilter, setTypeFilter] = useState<'all' | HabitType>('all');
@@ -43,20 +45,10 @@ export default function HabitsPage() {
     return true;
   });
 
-  const getEmptyMessage = () => {
-    if (habits.length === 0) {
-      return 'No habits yet. Add your first habit from the Today view.';
-    }
-    if (statusFilter === 'active') {
-      return 'No active habits. Check the Archived tab.';
-    }
-    return 'No archived habits.';
-  };
-
   return (
     <div className="habits-page">
       <div className="today-header">
-        <h2 className="today-title">Habit Management</h2>
+        <h2 className="today-title text-title">Habit Management</h2>
       </div>
 
       <div className="habits-filter-bar">
@@ -106,19 +98,48 @@ export default function HabitsPage() {
 
       <div className="today-content">
         {isLoading ? (
-          <div className="today-loading">Loading habits...</div>
+          <div className="skeleton-container" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="skeleton-card" style={{ padding: '0.875rem' }}><div className="skeleton-line" style={{ width: '60%' }} /></div>
+            <div className="skeleton-card" style={{ padding: '0.875rem' }}><div className="skeleton-line" style={{ width: '50%' }} /></div>
+            <div className="skeleton-card" style={{ padding: '0.875rem' }}><div className="skeleton-line" style={{ width: '70%' }} /></div>
+          </div>
         ) : filteredHabits.length === 0 ? (
-          <div className="empty-state">
-            <span className="empty-text">{getEmptyMessage()}</span>
+          <div className="empty-state-improved">
+            <div className="empty-state-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M12 22V12"/>
+                <path d="M12 12C12 12 7 10 7 5a5 5 0 0 1 10 0c0 5-5 7-5 7z"/>
+                <path d="M12 12C12 12 17 10 17 5"/>
+              </svg>
+            </div>
+            <div className="empty-state-headline">No habits yet</div>
+            <div className="empty-state-subtitle">
+              {statusFilter === 'archived'
+                ? 'No archived habits.'
+                : 'Head to Today view to add your first habit.'}
+            </div>
           </div>
         ) : (
           <div className="habits-list">
             {filteredHabits.map((habit) => (
-              <HabitRow key={habit.id} habit={habit} onUpdate={fetchHabits} />
+              <HabitRow
+                key={habit.id}
+                habit={habit}
+                onUpdate={fetchHabits}
+                onEdit={setEditHabit}
+              />
             ))}
           </div>
         )}
       </div>
+
+      <NewHabitForm
+        isOpen={Boolean(editHabit)}
+        onClose={() => setEditHabit(null)}
+        onSuccess={fetchHabits}
+        editHabit={editHabit || undefined}
+        initialStartDate=""
+      />
     </div>
   );
 }

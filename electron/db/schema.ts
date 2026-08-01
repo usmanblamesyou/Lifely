@@ -131,4 +131,13 @@ export function initSchema(db: Database.Database): void {
 
     CREATE INDEX IF NOT EXISTS idx_habit_recap_cache_habit_id ON habit_recap_cache(habit_id);
   `);
+
+  // 8. settings
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
 }

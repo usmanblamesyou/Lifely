@@ -1,15 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
-import { SummaryStats, HabitBreakdown } from '../../types/progress';
+import { SummaryStats, HabitBreakdown, DayData } from '../../types/progress';
 
 interface PieChartProps {
   summary: SummaryStats;
   habitBreakdown: HabitBreakdown[];
+  selectedDayData?: DayData | null;
   isLoading?: boolean;
 }
 
-export default function PieChart({ summary, habitBreakdown, isLoading }: PieChartProps) {
+export default function PieChart({ summary, habitBreakdown, selectedDayData, isLoading }: PieChartProps) {
   const [activeSegment, setActiveSegment] = useState<'completed' | 'missed' | 'skipped' | null>(null);
   const [sortAsc, setSortAsc] = useState(false);
 
@@ -21,15 +22,33 @@ export default function PieChart({ summary, habitBreakdown, isLoading }: PieChar
     );
   }
 
-  const completed = summary.total_completed || 0;
-  const skipped = habitBreakdown.reduce((acc, h) => acc + (h.days_skipped || 0), 0);
-  const missed = Math.max(0, (summary.total_scheduled || 0) - completed - skipped);
+  let completed = 0;
+  let skipped = 0;
+  let missed = 0;
+  let overallPct = 0;
+
+  if (selectedDayData) {
+    const items = selectedDayData.items || [];
+    completed = items.filter((i) => i.status === 'completed').length;
+    skipped = items.filter((i) => i.status === 'skipped').length;
+    missed = items.filter((i) => i.status === 'missed' || i.status === 'pending').length;
+    if (selectedDayData.scheduled_count > items.length) {
+      missed += (selectedDayData.scheduled_count - items.length);
+    }
+    overallPct = selectedDayData.daily_score !== null ? Math.round(selectedDayData.daily_score * 100) : 0;
+  } else {
+    completed = summary.total_completed || 0;
+    skipped = habitBreakdown.reduce((acc, h) => acc + (h.days_skipped || 0), 0);
+    missed = Math.max(0, (summary.total_scheduled || 0) - completed - skipped);
+    overallPct = Math.round(summary.average_completion_rate * 100);
+  }
+
   const total = completed + missed + skipped;
 
   if (total === 0) {
     return (
       <div className="empty-state" style={{ minHeight: 220 }}>
-        <span className="empty-text">No data for this range yet.</span>
+        <span className="empty-text">No data for this date.</span>
       </div>
     );
   }
@@ -75,7 +94,6 @@ export default function PieChart({ summary, habitBreakdown, isLoading }: PieChar
     };
   });
 
-  const overallPct = Math.round(summary.average_completion_rate * 100);
 
   // Drill-down data calculation
   const getDrillDownHabits = () => {
@@ -118,7 +136,7 @@ export default function PieChart({ summary, habitBreakdown, isLoading }: PieChar
                 strokeLinecap="round"
                 style={{
                   cursor: 'pointer',
-                  transition: 'stroke-width var(--dur-fast) var(--ease-spring)',
+                  transition: 'stroke-width var(--dur-fast) var(--ease-gentle)',
                 }}
                 onClick={() => setActiveSegment(activeSegment === seg.key ? null : seg.key)}
               />
@@ -126,7 +144,7 @@ export default function PieChart({ summary, habitBreakdown, isLoading }: PieChar
           })}
 
           {/* Donut Center Text */}
-          <text x="100" y="96" textAnchor="middle" fill="#ffffff" fontSize="24" fontWeight="800">
+          <text x="100" y="96" textAnchor="middle" fill="var(--text-primary)" fontSize="24" fontWeight="800">
             {overallPct}%
           </text>
           <text x="100" y="112" textAnchor="middle" fill="var(--text-secondary)" fontSize="10">

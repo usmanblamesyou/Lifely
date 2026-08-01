@@ -6,3 +6,6 @@ data
 *.log
 dist/
 build/icons/
+.env
+*.db
+tsconfig.tsbuildinfo

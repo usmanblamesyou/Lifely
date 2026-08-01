@@ -263,11 +263,11 @@ export default function RecapPanel({ habitId, onClose }: RecapPanelProps) {
                 if (!isInRange) {
                   cellStyle = { opacity: 0.25, cursor: 'default' };
                 } else if (status === 'completed') {
-                  cellStyle = { backgroundColor: 'rgba(76, 175, 130, 0.7)', color: '#fff' };
+                  cellStyle = { backgroundColor: 'rgba(76, 175, 130, 0.7)', color: 'var(--text-primary)' };
                 } else if (status === 'failed') {
-                  cellStyle = { backgroundColor: 'rgba(224, 82, 82, 0.5)', color: '#fff' };
+                  cellStyle = { backgroundColor: 'rgba(224, 82, 82, 0.5)', color: 'var(--text-primary)' };
                 } else if (status === 'skipped') {
-                  cellStyle = { backgroundColor: 'rgba(224, 160, 82, 0.4)', color: '#fff' };
+                  cellStyle = { backgroundColor: 'rgba(224, 160, 82, 0.4)', color: 'var(--text-primary)' };
                 } else {
                   cellStyle = { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-secondary)' };
                 }

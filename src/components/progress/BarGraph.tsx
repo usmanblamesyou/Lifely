@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { DayData, ProgressRange, HabitBreakdown } from '../../types/progress';
 
 interface BarGraphProps {
   days: DayData[];
   range: ProgressRange;
   habitBreakdown: HabitBreakdown[];
+  selectedDate?: string | null;
   isLoading?: boolean;
 }
 
@@ -14,10 +15,24 @@ interface BarGroup {
   label: string;
   completed: number;
   missed: number;
+  rawDate?: string;
 }
 
-export default function BarGraph({ days, range, habitBreakdown, isLoading }: BarGraphProps) {
-  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+export default function BarGraph({ days, range, habitBreakdown, selectedDate, isLoading }: BarGraphProps) {
+  const [clickedGroup, setClickedGroup] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setClickedGroup(null);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -47,6 +62,7 @@ export default function BarGraph({ days, range, habitBreakdown, isLoading }: Bar
           label,
           completed: d.completed_count,
           missed,
+          rawDate: d.date,
         };
       });
     }
@@ -119,7 +135,7 @@ export default function BarGraph({ days, range, habitBreakdown, isLoading }: Bar
   const gridTicks = [0, 0.25, 0.5, 0.75, 1.0];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+    <div ref={containerRef} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <div style={{ position: 'relative', width: '100%' }}>
         <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} width="100%" height="auto">
           {/* Horizontal Dashed Gridlines & Y-axis labels */}
@@ -164,16 +180,17 @@ export default function BarGraph({ days, range, habitBreakdown, isLoading }: Bar
             const compX = groupCenterX - barWidth - 1;
             const missX = groupCenterX + 1;
 
-            const isHovered = hoveredIdx === idx;
+            const isClicked = clickedGroup === idx;
+            const isSelectedDate = Boolean(selectedDate && g.rawDate === selectedDate);
+            const barOpacity = isSelectedDate || isClicked ? 1 : selectedDate ? 0.35 : 0.85;
 
             return (
               <g
                 key={idx}
-                onMouseEnter={() => setHoveredIdx(idx)}
-                onMouseLeave={() => setHoveredIdx(null)}
+                onClick={() => setClickedGroup(idx === clickedGroup ? null : idx)}
                 style={{ cursor: 'pointer' }}
               >
-                {/* Invisible Hover Hitbox */}
+                {/* Hitbox */}
                 <rect
                   x={chartX + idx * groupWidth}
                   y={chartY}
@@ -181,6 +198,17 @@ export default function BarGraph({ days, range, habitBreakdown, isLoading }: Bar
                   height={chartH}
                   fill="transparent"
                 />
+
+                {isSelectedDate && (
+                  <rect
+                    x={chartX + idx * groupWidth + 2}
+                    y={chartY}
+                    width={groupWidth - 4}
+                    height={chartH + 20}
+                    fill="rgba(255, 255, 255, 0.06)"
+                    rx="4"
+                  />
+                )}
 
                 {/* Completed Bar (Green) */}
                 <rect
@@ -191,7 +219,9 @@ export default function BarGraph({ days, range, habitBreakdown, isLoading }: Bar
                   rx="2"
                   ry="2"
                   fill="var(--success)"
-                  opacity={isHovered ? 1 : 0.85}
+                  opacity={barOpacity}
+                  stroke={isSelectedDate ? 'var(--text-primary)' : 'none'}
+                  strokeWidth={isSelectedDate ? 1 : 0}
                   style={{ transition: 'opacity var(--dur-fast) var(--ease-out)' }}
                 />
 
@@ -204,7 +234,9 @@ export default function BarGraph({ days, range, habitBreakdown, isLoading }: Bar
                   rx="2"
                   ry="2"
                   fill="var(--danger)"
-                  opacity={isHovered ? 1 : 0.85}
+                  opacity={barOpacity}
+                  stroke={isSelectedDate ? 'var(--text-primary)' : 'none'}
+                  strokeWidth={isSelectedDate ? 1 : 0}
                   style={{ transition: 'opacity var(--dur-fast) var(--ease-out)' }}
                 />
 
@@ -228,17 +260,17 @@ export default function BarGraph({ days, range, habitBreakdown, isLoading }: Bar
           })}
         </svg>
 
-        {/* Hover Tooltip */}
-        {hoveredIdx !== null && groups[hoveredIdx] && (
+        {/* Click Tooltip — Persistent until dismissed */}
+        {clickedGroup !== null && groups[clickedGroup] && (
           <div
             className="heatmap-tooltip"
             style={{
-              left: `${((chartX + hoveredIdx * groupWidth + groupWidth / 2) / svgWidth) * 100}%`,
+              left: `${((chartX + clickedGroup * groupWidth + groupWidth / 2) / svgWidth) * 100}%`,
               top: '5px',
               bottom: 'auto',
             }}
           >
-            {groups[hoveredIdx].label}: {groups[hoveredIdx].completed} completed, {groups[hoveredIdx].missed} missed
+            {groups[clickedGroup].label}: {groups[clickedGroup].completed} completed, {groups[clickedGroup].missed} missed
           </div>
         )}
       </div>

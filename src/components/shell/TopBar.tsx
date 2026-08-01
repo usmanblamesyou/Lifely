@@ -9,7 +9,10 @@ export default function TopBar() {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   const formattedDate = isToday
-    ? 'Today'
+    ? `Today, ${selectedDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      })}`
     : selectedDate.toLocaleDateString('en-US', {
         weekday: 'short',
         month: 'short',
@@ -47,23 +50,7 @@ export default function TopBar() {
           <MiniCalendar onClose={() => setIsCalendarOpen(false)} />
         )}
       </div>
-
-      <div className="topbar-right">
-        <button type="button" className="topbar-menu-btn pressable" aria-label="Menu">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
-        </button>
-      </div>
     </header>
   );
 }
+

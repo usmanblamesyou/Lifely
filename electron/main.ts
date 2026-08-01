@@ -19,19 +19,22 @@ function createWindow(): void {
     height: isPackaged ? 800 : 700,
     minWidth: isPackaged ? 900 : undefined,
     minHeight: isPackaged ? 600 : undefined,
-    title: 'Lifely - Local Habit & Task Tracker',
+    title: 'Lifely',
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      sandbox: false,
     },
   });
 
-  if (isPackaged) {
-    mainWindow.setMenuBarVisibility(false);
-  }
+  mainWindow.setMenuBarVisibility(false);
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show();
+  });
 
   const outPath = path.join(__dirname, '../out/index.html');
   if (fs.existsSync(outPath)) {

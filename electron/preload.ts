@@ -1,5 +1,29 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+// Synchronous Theme Initialization before DOM / React mount (prevents theme flash)
+try {
+  const themeConfig = ipcRenderer.sendSync('settings:get-theme-sync');
+  if (themeConfig && themeConfig.colors) {
+    const style = document.createElement('style');
+    style.id = 'theme-init-style';
+    style.textContent = `:root {
+      --bg-base: ${themeConfig.colors.bg_base};
+      --bg-surface: ${themeConfig.colors.bg_surface};
+      --bg-elevated: ${themeConfig.colors.bg_elevated};
+      --bg-card: ${themeConfig.colors.bg_card};
+      --text-primary: ${themeConfig.colors.text_primary};
+      --text-secondary: ${themeConfig.colors.text_secondary};
+      --text-dim: ${themeConfig.colors.text_dim};
+      --accent: ${themeConfig.colors.accent};
+      --accent-hover: ${themeConfig.colors.accent_hover};
+      --border-color: ${themeConfig.colors.border_color};
+    }`;
+    (document.head || document.documentElement).appendChild(style);
+  }
+} catch (e) {
+  console.error('Failed synchronous theme initialization in preload:', e);
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   habits: {
     create: (data: any) => ipcRenderer.invoke('habits:create', data),
@@ -12,6 +36,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     unarchive: (habitId: number) => ipcRenderer.invoke('habits:unarchive', habitId),
     end: (data: any) => ipcRenderer.invoke('habits:end', data),
     delete: (habitId: number) => ipcRenderer.invoke('habits:delete', habitId),
+    update: (data: any) => ipcRenderer.invoke('habits:update', data),
+    reorder: (updates: any[]) => ipcRenderer.invoke('habits:reorder', updates),
     calculateRecap: (habitId: number) => ipcRenderer.invoke('habits:calculate-recap', habitId),
     getRecap: (habitId: number) => ipcRenderer.invoke('habits:get-recap', habitId),
   },
@@ -20,6 +46,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getForDate: (date: string) => ipcRenderer.invoke('tasks:get-for-date', date),
     updateStatus: (data: any) => ipcRenderer.invoke('tasks:update-status', data),
     getAll: () => ipcRenderer.invoke('tasks:get-all'),
+    delete: (taskId: number) => ipcRenderer.invoke('tasks:delete', taskId),
+    update: (data: any) => ipcRenderer.invoke('tasks:update', data),
+    reorder: (updates: any[]) => ipcRenderer.invoke('tasks:reorder', updates),
   },
   areas: {
     getAll: () => ipcRenderer.invoke('areas:get-all'),
@@ -43,6 +72,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clearAllData: (text: string) => ipcRenderer.invoke('settings:clear-all-data', text),
     getDatabaseInfo: () => ipcRenderer.invoke('settings:get-database-info'),
     openDbFolder: () => ipcRenderer.invoke('settings:open-db-folder'),
+    getTheme: () => ipcRenderer.invoke('settings:get-theme'),
+    saveTheme: (config: any) => ipcRenderer.invoke('settings:save-theme', config),
   },
 });
 

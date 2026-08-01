@@ -61,7 +61,7 @@ export default function CustomSelect({
     <div ref={wrapperRef} className="custom-select-wrapper" id={id}>
       <button
         type="button"
-        className={`custom-select-trigger pressable ${isOpen ? 'open' : ''}`}
+        className={`custom-select-trigger ${isOpen ? 'open' : ''}`}
         onClick={() => setIsOpen((prev) => !prev)}
         onKeyDown={handleKeyDown}
         aria-haspopup="listbox"

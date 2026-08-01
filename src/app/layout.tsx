@@ -1,6 +1,8 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { DateProvider } from '../context/DateContext';
+import { ViewProvider } from '../context/ViewContext';
+import { ThemeProvider } from '../context/ThemeContext';
 import Sidebar from '../components/shell/Sidebar';
 import TopBar from '../components/shell/TopBar';
 import MainContent from '../components/shell/MainContent';
@@ -18,15 +20,19 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <DateProvider>
-          <div className="app-container">
-            <Sidebar />
-            <div className="app-main-wrapper">
-              <TopBar />
-              <MainContent>{children}</MainContent>
-            </div>
-          </div>
-        </DateProvider>
+        <ThemeProvider>
+          <DateProvider>
+            <ViewProvider>
+              <div className="app-container">
+                <Sidebar />
+                <div className="app-main-wrapper">
+                  <TopBar />
+                  <MainContent>{children}</MainContent>
+                </div>
+              </div>
+            </ViewProvider>
+          </DateProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

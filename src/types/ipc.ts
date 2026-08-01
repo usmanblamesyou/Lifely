@@ -1,6 +1,7 @@
 import {
   Habit,
   CreateHabitInput,
+  UpdateHabitInput,
   LogHabitInput,
   HabitLog,
   HabitRecap,
@@ -10,6 +11,7 @@ import {
 import {
   Task,
   CreateTaskInput,
+  UpdateTaskInput,
   UpdateTaskStatusInput,
 } from './task';
 import { ProgressRange, ProgressData } from './progress';
@@ -27,6 +29,8 @@ export interface ElectronAPI {
     unarchive: (habitId: number) => Promise<Habit>;
     end: (data: { habit_id: number; end_date: string }) => Promise<Habit>;
     delete: (habitId: number) => Promise<{ success: boolean }>;
+    update: (data: UpdateHabitInput) => Promise<Habit>;
+    reorder: (updates: { habit_id: number; position: number }[]) => Promise<{ success: boolean }>;
     calculateRecap: (habitId: number) => Promise<HabitRecap>;
     getRecap: (habitId: number) => Promise<HabitRecap>;
   };
@@ -35,6 +39,9 @@ export interface ElectronAPI {
     getForDate: (date: string) => Promise<Task[]>;
     updateStatus: (data: UpdateTaskStatusInput) => Promise<Task>;
     getAll: () => Promise<Task[]>;
+    delete: (taskId: number) => Promise<{ success: boolean }>;
+    update: (data: UpdateTaskInput) => Promise<Task>;
+    reorder: (updates: { task_id: number; position: number }[]) => Promise<{ success: boolean }>;
   };
   areas: {
     getAll: () => Promise<Area[]>;
@@ -67,6 +74,8 @@ export interface ElectronAPI {
       export_available: boolean;
     }>;
     openDbFolder: () => Promise<{ success: boolean }>;
+    getTheme: () => Promise<any>;
+    saveTheme: (config: any) => Promise<{ success: boolean; error?: string }>;
   };
 }
 

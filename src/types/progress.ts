@@ -1,11 +1,22 @@
 export type ProgressRange = '7d' | '14d' | '1m' | '3m' | '6m' | '1y';
 
+export interface DayItem {
+  id: number;
+  item_type: 'habit' | 'task';
+  title: string;
+  status: 'completed' | 'missed' | 'pending' | 'skipped';
+  color?: string | null;
+  habit_type?: 'build' | 'break';
+  priority?: string;
+}
+
 export interface DayData {
   date: string;
   daily_score: number | null;
   tier: 'perfect' | 'good' | 'poor' | 'empty';
   scheduled_count: number;
   completed_count: number;
+  items?: DayItem[];
 }
 
 export interface SummaryStats {

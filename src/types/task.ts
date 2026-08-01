@@ -15,6 +15,8 @@ export interface Task {
   checklist_json: string[];
   last_completed_date: string | null;
   last_skipped_date: string | null;
+  position: number;
+  color: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -28,6 +30,19 @@ export interface CreateTaskInput {
   repeat_type: TaskRepeatType;
   repeat_days?: number[] | null;
   checklist_items: string[];
+  color?: string | null;
+}
+
+export interface UpdateTaskInput {
+  task_id: number;
+  notes: string | null;
+  due_date: string;
+  due_time: string | null;
+  priority: TaskPriority;
+  repeat_type: TaskRepeatType;
+  repeat_days: number[] | null;
+  checklist_items: string[];
+  color: string | null;
 }
 
 export interface UpdateTaskStatusInput {

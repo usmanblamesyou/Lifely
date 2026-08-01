@@ -1,4 +1,4 @@
-import { ipcMain, dialog, shell } from 'electron';
+import { ipcMain, dialog, shell, BrowserWindow } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import { getDb, getDatabasePath } from './connection';
@@ -418,7 +418,7 @@ export function setupIpcHandlers(): void {
     } else {
       db.prepare(
         'INSERT INTO habit_logs (habit_id, log_date, status, count, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ).run(status, log_date, status, count, note || null, now, now);
+      ).run(habit_id, log_date, status, count, note || null, now, now);
     }
 
     return db
@@ -442,7 +442,7 @@ export function setupIpcHandlers(): void {
         WHERE is_archived = 0
           AND start_date <= ?
           AND (end_date IS NULL OR end_date >= ?)
-        ORDER BY created_at ASC
+        ORDER BY position ASC, created_at ASC
       `)
       .all(dateStr, dateStr);
 
@@ -715,27 +715,67 @@ export function setupIpcHandlers(): void {
 
       const scheduled_count = scheduledHabits.length + scheduledTasks.length;
 
-      // 3. Completed Habits
+      const todayStr = getTodayStr();
+      const dayItems: any[] = [];
+
+      // 3. Completed Habits & items construction
       let completed_habits = 0;
       scheduledHabits.forEach((h) => {
         const st = habitLogsMap.get(`${h.id}_${dayStr}`);
+        let itemStatus: 'completed' | 'missed' | 'pending' | 'skipped' = 'pending';
         if (st === 'completed') {
+          itemStatus = 'completed';
           completed_habits++;
+        } else if (st === 'skipped') {
+          itemStatus = 'skipped';
+        } else if (dayStr < todayStr) {
+          itemStatus = 'missed';
+        } else {
+          itemStatus = 'pending';
         }
+
+        dayItems.push({
+          id: h.id,
+          item_type: 'habit',
+          title: h.name,
+          status: itemStatus,
+          color: h.color || null,
+          habit_type: h.type,
+        });
       });
 
-      // 4. Completed Tasks
+      // 4. Completed Tasks & items construction
       let completed_tasks = 0;
       scheduledTasks.forEach((t) => {
+        let isTaskCompleted = false;
         if (t.repeat_type === 'none') {
           if (t.status === 'completed' && t.due_date === dayStr) {
-            completed_tasks++;
+            isTaskCompleted = true;
           }
         } else {
           if (t.last_completed_date === dayStr) {
-            completed_tasks++;
+            isTaskCompleted = true;
           }
         }
+
+        let itemStatus: 'completed' | 'missed' | 'pending' = 'pending';
+        if (isTaskCompleted) {
+          itemStatus = 'completed';
+          completed_tasks++;
+        } else if (dayStr < todayStr) {
+          itemStatus = 'missed';
+        } else {
+          itemStatus = 'pending';
+        }
+
+        dayItems.push({
+          id: t.id,
+          item_type: 'task',
+          title: t.title,
+          status: itemStatus,
+          color: t.color || null,
+          priority: t.priority,
+        });
       });
 
       const completed_count = completed_habits + completed_tasks;
@@ -760,6 +800,7 @@ export function setupIpcHandlers(): void {
         tier,
         scheduled_count,
         completed_count,
+        items: dayItems,
       });
 
       curr.setDate(curr.getDate() + 1);
@@ -955,7 +996,7 @@ export function setupIpcHandlers(): void {
         SELECT * FROM tasks
         WHERE (repeat_type = 'none' AND due_date = ?)
            OR (repeat_type != 'none' AND due_date <= ?)
-        ORDER BY created_at ASC
+        ORDER BY position ASC, created_at ASC
       `)
       .all(dateStr, dateStr);
 
@@ -1030,7 +1071,122 @@ export function setupIpcHandlers(): void {
     return rows.map((row: any) => formatTaskRow(row));
   });
 
-  // --- AREAS HANDLERS ---
+  ipcMain.handle('tasks:delete', async (_, taskId: number) => {
+    const db = getDb();
+    db.prepare('DELETE FROM tasks WHERE id = ?').run(taskId);
+    return { success: true };
+  });
+
+  // habits:update — name is immutable, all other fields updatable
+  ipcMain.handle('habits:update', async (_, data: any) => {
+    const db = getDb();
+    const now = new Date().toISOString();
+    const {
+      habit_id, repeat_type, repeat_days, goal_count, goal_period,
+      time_of_day, start_date, end_condition, end_condition_value,
+      reminder_times, checklist_items, color,
+    } = data;
+
+    const repeatDaysStr = repeat_days && repeat_days.length > 0 ? JSON.stringify(repeat_days) : null;
+    const timeOfDayStr = time_of_day && time_of_day.length > 0 ? JSON.stringify(time_of_day) : null;
+    const reminderTimesStr = reminder_times && reminder_times.length > 0 ? JSON.stringify(reminder_times) : null;
+    const endDate = end_condition === 'on_date' && end_condition_value ? end_condition_value : null;
+
+    const updateTx = db.transaction(() => {
+      db.prepare(`
+        UPDATE habits SET
+          repeat_type = ?, repeat_days = ?, goal_count = ?, goal_period = ?,
+          time_of_day = ?, start_date = ?, end_date = ?, end_condition = ?,
+          end_condition_value = ?, reminder_times = ?, color = ?, updated_at = ?
+        WHERE id = ?
+      `).run(
+        repeat_type, repeatDaysStr, goal_count || 1, goal_period || 'day',
+        timeOfDayStr, start_date,
+        endDate,
+        end_condition, end_condition_value || null,
+        reminderTimesStr, color || null, now,
+        habit_id
+      );
+
+      // Re-insert checklist items
+      db.prepare('DELETE FROM checklist_items WHERE habit_id = ?').run(habit_id);
+      if (Array.isArray(checklist_items)) {
+        const insertItem = db.prepare(
+          'INSERT INTO checklist_items (habit_id, label, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+        );
+        checklist_items.forEach((label: string, index: number) => {
+          if (label && label.trim().length > 0) {
+            insertItem.run(habit_id, label.trim(), index, now, now);
+          }
+        });
+      }
+    });
+
+    updateTx();
+    const updatedRow = db.prepare('SELECT * FROM habits WHERE id = ?').get(habit_id);
+    return formatHabitRow(db, updatedRow);
+  });
+
+  // tasks:update — title is immutable, all other fields updatable
+  ipcMain.handle('tasks:update', async (_, data: any) => {
+    const db = getDb();
+    const now = new Date().toISOString();
+    const {
+      task_id, notes, due_date, due_time, priority, repeat_type,
+      repeat_days, checklist_items, color,
+    } = data;
+
+    const repeatDaysStr = repeat_days && repeat_days.length > 0 ? JSON.stringify(repeat_days) : null;
+    const checklistItems = Array.isArray(checklist_items)
+      ? checklist_items.filter((i: string) => i && i.trim().length > 0)
+      : [];
+    const checklistJsonStr = checklistItems.length > 0 ? JSON.stringify(checklistItems) : null;
+
+    db.prepare(`
+      UPDATE tasks SET
+        notes = ?, due_date = ?, due_time = ?, priority = ?,
+        repeat_type = ?, repeat_days = ?, checklist_json = ?,
+        color = ?, updated_at = ?
+      WHERE id = ?
+    `).run(
+      notes || null, due_date, due_time || null,
+      priority || null, repeat_type || 'none',
+      repeatDaysStr, checklistJsonStr,
+      color || null, now,
+      task_id
+    );
+
+    const updatedRow = db.prepare('SELECT * FROM tasks WHERE id = ?').get(task_id);
+    return formatTaskRow(updatedRow, due_date);
+  });
+
+  // habits:reorder — single transaction
+  ipcMain.handle('habits:reorder', async (_, updates: { habit_id: number; position: number }[]) => {
+    const db = getDb();
+    const updateStmt = db.prepare('UPDATE habits SET position = ? WHERE id = ?');
+    const tx = db.transaction(() => {
+      updates.forEach(({ habit_id, position }) => {
+        updateStmt.run(position, habit_id);
+      });
+    });
+    tx();
+    return { success: true };
+  });
+
+  // tasks:reorder — single transaction
+  ipcMain.handle('tasks:reorder', async (_, updates: { task_id: number; position: number }[]) => {
+    const db = getDb();
+    const updateStmt = db.prepare('UPDATE tasks SET position = ? WHERE id = ?');
+    const tx = db.transaction(() => {
+      updates.forEach(({ task_id, position }) => {
+        updateStmt.run(position, task_id);
+      });
+    });
+    tx();
+    return { success: true };
+  });
+
+
   ipcMain.handle('areas:get-all', async () => {
     const db = getDb();
     return db.prepare('SELECT * FROM areas ORDER BY name ASC').all();
@@ -1150,6 +1306,8 @@ export function setupIpcHandlers(): void {
   });
 
   // --- SETTINGS HANDLERS ---
+  const getFocusedWin = () => BrowserWindow.getFocusedWindow() || undefined;
+
   ipcMain.handle('settings:export-data', async () => {
     const db = getDb();
     const habits = db.prepare('SELECT * FROM habits').all();
@@ -1166,11 +1324,18 @@ export function setupIpcHandlers(): void {
     const habit_recap_cache = db.prepare('SELECT * FROM habit_recap_cache').all();
 
     const todayStr = formatDateIso(new Date());
-    const res = await dialog.showSaveDialog({
-      title: 'Export Lifely Data',
-      defaultPath: `lifely-export-${todayStr}.json`,
-      filters: [{ name: 'JSON', extensions: ['json'] }],
-    });
+    const win = getFocusedWin();
+    const res = win
+      ? await dialog.showSaveDialog(win, {
+          title: 'Export Lifely Data',
+          defaultPath: `lifely-export-${todayStr}.json`,
+          filters: [{ name: 'JSON', extensions: ['json'] }],
+        })
+      : await dialog.showSaveDialog({
+          title: 'Export Lifely Data',
+          defaultPath: `lifely-export-${todayStr}.json`,
+          filters: [{ name: 'JSON', extensions: ['json'] }],
+        });
 
     if (res.canceled || !res.filePath) {
       return { success: false, cancelled: true };
@@ -1197,15 +1362,24 @@ export function setupIpcHandlers(): void {
 
   ipcMain.handle('settings:import-data', async () => {
     const db = getDb();
-    const res = await dialog.showOpenDialog({
-      title: 'Import Lifely Data',
-      filters: [{ name: 'JSON', extensions: ['json'] }],
-      properties: ['openFile'],
-    });
+    const win = getFocusedWin();
+    const res = win
+      ? await dialog.showOpenDialog(win, {
+          title: 'Import Lifely Data',
+          filters: [{ name: 'JSON', extensions: ['json'] }],
+          properties: ['openFile'],
+        })
+      : await dialog.showOpenDialog({
+          title: 'Import Lifely Data',
+          filters: [{ name: 'JSON', extensions: ['json'] }],
+          properties: ['openFile'],
+        });
 
     if (res.canceled || !res.filePaths || res.filePaths.length === 0) {
       return { success: false, cancelled: true };
     }
+
+
 
     const filePath = res.filePaths[0];
     let fileContent = '';
@@ -1298,15 +1472,24 @@ export function setupIpcHandlers(): void {
   ipcMain.handle('settings:backup-database', async () => {
     const dbPath = getDatabasePath();
     const todayStr = formatDateIso(new Date());
-    const res = await dialog.showSaveDialog({
-      title: 'Backup Database File',
-      defaultPath: `lifely-backup-${todayStr}.db`,
-      filters: [{ name: 'SQLite Database', extensions: ['db'] }],
-    });
+    const win = getFocusedWin();
+    const res = win
+      ? await dialog.showSaveDialog(win, {
+          title: 'Backup Database File',
+          defaultPath: `lifely-backup-${todayStr}.db`,
+          filters: [{ name: 'SQLite Database', extensions: ['db'] }],
+        })
+      : await dialog.showSaveDialog({
+          title: 'Backup Database File',
+          defaultPath: `lifely-backup-${todayStr}.db`,
+          filters: [{ name: 'SQLite Database', extensions: ['db'] }],
+        });
 
     if (res.canceled || !res.filePath) {
       return { success: false, cancelled: true };
     }
+
+
 
     try {
       fs.copyFileSync(dbPath, res.filePath);
@@ -1367,6 +1550,63 @@ export function setupIpcHandlers(): void {
     await shell.openPath(folderPath);
     return { success: true };
   });
+
+  // --- THEME HANDLERS ---
+  ipcMain.on('settings:get-theme-sync', (event) => {
+    event.returnValue = getThemeConfigFromDb();
+  });
+
+  ipcMain.handle('settings:get-theme', async () => {
+    return getThemeConfigFromDb();
+  });
+
+  ipcMain.handle('settings:save-theme', async (_, config: any) => {
+    try {
+      const db = getDb();
+      const now = new Date().toISOString();
+      const valueStr = JSON.stringify(config);
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('theme_config', ?, ?)
+        ON CONFLICT(key) DO UPDATE SET
+          value = excluded.value,
+          updated_at = excluded.updated_at
+      `).run(valueStr, now);
+
+      return { success: true };
+    } catch (err: any) {
+      console.error('Failed to save theme config:', err);
+      return { success: false, error: err.message || 'Failed to save theme' };
+    }
+  });
+}
+
+export function getThemeConfigFromDb() {
+  try {
+    const db = getDb();
+    const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('theme_config') as any;
+    if (row && row.value) {
+      return JSON.parse(row.value);
+    }
+  } catch (err) {
+    console.error('Error reading theme from DB:', err);
+  }
+  return {
+    mode: 'dark',
+    colors: {
+      bg_base: '#0d0d0d',
+      bg_surface: '#141414',
+      bg_elevated: '#1c1c1e',
+      bg_card: '#1c1c1e',
+      text_primary: 'rgba(255, 255, 255, 0.92)',
+      text_secondary: 'rgba(255, 255, 255, 0.55)',
+      text_dim: 'rgba(255, 255, 255, 0.30)',
+      accent: '#8E8E93',
+      accent_hover: '#AEAEB2',
+      border_color: 'rgba(255, 255, 255, 0.12)',
+    },
+  };
 }
 
 

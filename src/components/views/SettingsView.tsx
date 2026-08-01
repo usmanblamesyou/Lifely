@@ -1,6 +1,6 @@
-'use client';
-
 import React, { useEffect, useState } from 'react';
+import ThemeColorField from '../ui/ThemeColorField';
+import { useTheme } from '../../context/ThemeContext';
 
 interface DbInfo {
   db_path: string;
@@ -12,7 +12,20 @@ interface DbInfo {
   export_available: boolean;
 }
 
-export default function SettingsPage() {
+export default function SettingsView() {
+  const {
+    draftConfig,
+    setDraftMode,
+    updateDraftColor,
+    resetDraftToDarkDefaults,
+    saveTheme,
+    discardDraft,
+    hasUnsavedChanges,
+  } = useTheme();
+
+  const [isSavingTheme, setIsSavingTheme] = useState(false);
+  const [themeFeedback, setThemeFeedback] = useState<string | null>(null);
+
   const [dbInfo, setDbInfo] = useState<DbInfo | null>(null);
   const [isLoadingInfo, setIsLoadingInfo] = useState(true);
 
@@ -31,6 +44,19 @@ export default function SettingsPage() {
     type: 'success' | 'error';
     message: string;
   } | null>(null);
+
+  const handleSaveTheme = async () => {
+    setIsSavingTheme(true);
+    try {
+      await saveTheme();
+      setThemeFeedback('Theme saved and applied!');
+      setTimeout(() => setThemeFeedback(null), 3000);
+    } catch (err) {
+      console.error('Failed to save theme:', err);
+    } finally {
+      setIsSavingTheme(false);
+    }
+  };
 
   const fetchDbInfo = async () => {
     setIsLoadingInfo(true);
@@ -134,6 +160,8 @@ export default function SettingsPage() {
 
   const handleClearData = async () => {
     setClearFeedback(null);
+    if (confirmInput !== 'DELETE ALL MY DATA') return;
+
     setIsClearing(true);
     try {
       if (typeof window !== 'undefined' && window.electronAPI?.settings) {
@@ -141,7 +169,7 @@ export default function SettingsPage() {
         if (res.success) {
           setClearFeedback({
             type: 'success',
-            message: 'All data cleared successfully. Database is clean.',
+            message: 'All data cleared successfully!',
           });
           setConfirmInput('');
           await fetchDbInfo();
@@ -169,14 +197,185 @@ export default function SettingsPage() {
     <div className="settings-page">
       <div className="today-header">
         <div>
-          <h2 className="today-title">Settings</h2>
-          <div className="sub-label">Manage data, backups, and system info</div>
+          <h2 className="today-title text-title">Settings</h2>
+          <div className="sub-label">Manage themes, data, backups, and system info</div>
+        </div>
+      </div>
+
+      {/* --- Section 1: Appearance --- */}
+      <div className="settings-section">
+        <div className="settings-section-title text-label">Appearance</div>
+
+        <div className="appearance-mode-tabs">
+          <button
+            type="button"
+            className={`appearance-mode-btn ${draftConfig.mode === 'dark' ? 'active' : ''}`}
+            onClick={() => setDraftMode('dark')}
+          >
+            <span>Dark</span>
+            <div className="swatch-preview-strip">
+              <span className="swatch-preview-chip" style={{ background: '#0d0d0d' }} />
+              <span className="swatch-preview-chip" style={{ background: '#141414' }} />
+              <span className="swatch-preview-chip" style={{ background: '#1c1c1e' }} />
+              <span className="swatch-preview-chip" style={{ background: '#8E8E93' }} />
+              <span className="swatch-preview-chip" style={{ background: '#f0f0f0' }} />
+            </div>
+          </button>
+
+          <button
+            type="button"
+            className={`appearance-mode-btn ${draftConfig.mode === 'light' ? 'active' : ''}`}
+            onClick={() => setDraftMode('light')}
+          >
+            <span>Light</span>
+            <div className="swatch-preview-strip">
+              <span className="swatch-preview-chip" style={{ background: '#f5f5f7' }} />
+              <span className="swatch-preview-chip" style={{ background: '#ffffff' }} />
+              <span className="swatch-preview-chip" style={{ background: '#e5e5ea' }} />
+              <span className="swatch-preview-chip" style={{ background: '#6e6e73' }} />
+              <span className="swatch-preview-chip" style={{ background: '#1d1d1f' }} />
+            </div>
+          </button>
+
+          <button
+            type="button"
+            className={`appearance-mode-btn ${draftConfig.mode === 'custom' ? 'active' : ''}`}
+            onClick={() => setDraftMode('custom')}
+          >
+            <span>Custom</span>
+            <div className="swatch-preview-strip">
+              <span className="swatch-preview-chip" style={{ background: draftConfig.colors.bg_base }} />
+              <span className="swatch-preview-chip" style={{ background: draftConfig.colors.bg_surface }} />
+              <span className="swatch-preview-chip" style={{ background: draftConfig.colors.bg_card }} />
+              <span className="swatch-preview-chip" style={{ background: draftConfig.colors.accent }} />
+              <span className="swatch-preview-chip" style={{ background: draftConfig.colors.text_primary }} />
+            </div>
+          </button>
+        </div>
+
+        {draftConfig.mode === 'custom' && (
+          <div className="anim-fade-in">
+            <div className="flex-between mb-2" style={{ marginTop: '1rem' }}>
+              <div className="sub-label">Customize theme color swatches:</div>
+              <button
+                type="button"
+                className="clear-selection-btn"
+                onClick={resetDraftToDarkDefaults}
+              >
+                Reset to Dark defaults
+              </button>
+            </div>
+
+            <div className="theme-color-grid">
+              <ThemeColorField
+                label="Background Base"
+                description="OLED / Main window background"
+                value={draftConfig.colors.bg_base}
+                onChange={(val) => updateDraftColor('bg_base', val)}
+              />
+              <ThemeColorField
+                label="Background Surface"
+                description="Sidebar & panel background"
+                value={draftConfig.colors.bg_surface}
+                onChange={(val) => updateDraftColor('bg_surface', val)}
+              />
+              <ThemeColorField
+                label="Background Elevated"
+                description="Modals & dropdown popovers"
+                value={draftConfig.colors.bg_elevated}
+                onChange={(val) => updateDraftColor('bg_elevated', val)}
+              />
+              <ThemeColorField
+                label="Background Card"
+                description="Habit & task cards"
+                value={draftConfig.colors.bg_card}
+                onChange={(val) => updateDraftColor('bg_card', val)}
+              />
+              <ThemeColorField
+                label="Primary Text"
+                description="Main titles & body text"
+                value={draftConfig.colors.text_primary}
+                onChange={(val) => updateDraftColor('text_primary', val)}
+              />
+              <ThemeColorField
+                label="Secondary Text"
+                description="Subtitles & labels"
+                value={draftConfig.colors.text_secondary}
+                onChange={(val) => updateDraftColor('text_secondary', val)}
+              />
+              <ThemeColorField
+                label="Dim Text"
+                description="Muted captions & timestamps"
+                value={draftConfig.colors.text_dim}
+                onChange={(val) => updateDraftColor('text_dim', val)}
+              />
+              <ThemeColorField
+                label="Accent Color"
+                description="Interactive highlights & checkmarks"
+                value={draftConfig.colors.accent}
+                onChange={(val) => updateDraftColor('accent', val)}
+              />
+              <ThemeColorField
+                label="Accent Hover"
+                description="Hover states on active elements"
+                value={draftConfig.colors.accent_hover}
+                onChange={(val) => updateDraftColor('accent_hover', val)}
+              />
+              <ThemeColorField
+                label="Border Color"
+                description="Card dividers & input outlines"
+                value={draftConfig.colors.border_color}
+                onChange={(val) => updateDraftColor('border_color', val)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Action Bar for Apply-on-Save */}
+        <div className="theme-actions-bar">
+          <div>
+            {hasUnsavedChanges ? (
+              <span className="text-caption" style={{ color: 'var(--warning)', fontWeight: 600 }}>
+                ● Unsaved theme changes
+              </span>
+            ) : (
+              <span className="text-caption" style={{ color: 'var(--text-secondary)' }}>
+                Theme configuration is up to date
+              </span>
+            )}
+            {themeFeedback && (
+              <span className="text-caption" style={{ color: 'var(--success)', marginLeft: '12px' }}>
+                ✓ {themeFeedback}
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button
+              type="button"
+              className="btn-secondary pressable"
+              onClick={discardDraft}
+              disabled={!hasUnsavedChanges}
+              style={{ opacity: hasUnsavedChanges ? 1 : 0.5, cursor: hasUnsavedChanges ? 'pointer' : 'not-allowed' }}
+            >
+              Discard Changes
+            </button>
+            <button
+              type="button"
+              className="btn-primary pressable"
+              onClick={handleSaveTheme}
+              disabled={!hasUnsavedChanges || isSavingTheme}
+              style={{ opacity: hasUnsavedChanges ? 1 : 0.5, cursor: hasUnsavedChanges ? 'pointer' : 'not-allowed' }}
+            >
+              {isSavingTheme ? 'Saving...' : 'Save Theme'}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* --- Section 1: Data Management --- */}
       <div className="settings-section">
-        <div className="settings-section-title">Data Management</div>
+        <div className="settings-section-title text-label">Data Management</div>
 
         {isLoadingInfo ? (
           <div className="today-loading">Loading database info...</div>
@@ -268,7 +467,7 @@ export default function SettingsPage() {
               className="btn-primary text-danger pressable"
               style={{
                 background: confirmInput === 'DELETE ALL MY DATA' ? 'var(--danger)' : 'var(--bg-elevated)',
-                color: confirmInput === 'DELETE ALL MY DATA' ? '#ffffff' : 'var(--text-tertiary)',
+                color: confirmInput === 'DELETE ALL MY DATA' ? 'var(--text-primary)' : 'var(--text-tertiary)',
                 borderColor: confirmInput === 'DELETE ALL MY DATA' ? 'var(--danger)' : 'var(--border-subtle)',
                 opacity: confirmInput === 'DELETE ALL MY DATA' ? 1 : 0.6,
                 cursor: confirmInput === 'DELETE ALL MY DATA' ? 'pointer' : 'not-allowed',
@@ -302,7 +501,7 @@ export default function SettingsPage() {
           </div>
           <div className="about-row">
             <span className="db-info-label">Built By</span>
-            <span className="db-info-value" style={{ fontFamily: 'inherit' }}>Aevo Labs</span>
+            <span className="db-info-value" style={{ fontFamily: 'inherit' }}>Usmanblamesyou</span>
           </div>
           <div className="about-row">
             <span className="db-info-label">Database Folder</span>

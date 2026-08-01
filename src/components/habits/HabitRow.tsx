@@ -7,9 +7,10 @@ import RecapPanel from './RecapPanel';
 interface HabitRowProps {
   habit: Habit;
   onUpdate: () => void;
+  onEdit?: (habit: Habit) => void;
 }
 
-export default function HabitRow({ habit, onUpdate }: HabitRowProps) {
+export default function HabitRow({ habit, onUpdate, onEdit }: HabitRowProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [confirmMode, setConfirmMode] = useState<'none' | 'end' | 'delete'>('none');
   const [showRecap, setShowRecap] = useState(false);
@@ -190,6 +191,18 @@ export default function HabitRow({ habit, onUpdate }: HabitRowProps) {
             <div ref={menuRef} className="habit-action-menu anim-slide-down">
               {!isArchived ? (
                 <>
+                  {onEdit && (
+                    <button
+                      type="button"
+                      className="habit-action-item"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onEdit(habit);
+                      }}
+                    >
+                      Edit
+                    </button>
+                  )}
                   {!habit.end_date && (
                     <button
                       type="button"
@@ -222,6 +235,18 @@ export default function HabitRow({ habit, onUpdate }: HabitRowProps) {
                 </>
               ) : (
                 <>
+                  {onEdit && (
+                    <button
+                      type="button"
+                      className="habit-action-item"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onEdit(habit);
+                      }}
+                    >
+                      Edit
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="habit-action-item"

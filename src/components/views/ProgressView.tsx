@@ -1,23 +1,13 @@
-'use client';
-
 import React, { useEffect, useState } from 'react';
 import { ProgressRange, ProgressData, HabitBreakdown } from '../../types/progress';
-import PieChart from '../../components/progress/PieChart';
-import BarGraph from '../../components/progress/BarGraph';
+import PieChart from '../progress/PieChart';
+import BarGraph from '../progress/BarGraph';
 
-export default function ProgressPage() {
+export default function ProgressView() {
   const [range, setRange] = useState<ProgressRange>('7d');
   const [data, setData] = useState<ProgressData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Tooltip state for heatmap
-  const [hoveredDay, setHoveredDay] = useState<{
-    date: string;
-    completed: number;
-    scheduled: number;
-    score: number;
-    cellKey: string;
-  } | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // Habit breakdown sorting
   const [sortField, setSortField] = useState<keyof HabitBreakdown>('completion_rate');
@@ -39,6 +29,7 @@ export default function ProgressPage() {
 
   useEffect(() => {
     fetchProgress();
+    setSelectedDate(null);
   }, [range]);
 
   const handleSort = (field: keyof HabitBreakdown) => {
@@ -66,6 +57,8 @@ export default function ProgressPage() {
       return sortOrder === 'asc' ? numA - numB : numB - numA;
     });
   };
+
+  const selectedDayData = selectedDate && data ? data.days.find((d) => d.date === selectedDate) : null;
 
   // Helper to generate monthly grids stacked vertically
   const renderStackedMonthCalendars = () => {
@@ -130,39 +123,27 @@ export default function ProgressPage() {
                   const dayData = dayMap.get(dayStr);
                   const tier = isInRange && dayData ? dayData.tier : 'empty';
                   const isPerfect = tier === 'perfect';
-
-                  const cellKey = `${year}-${month}-${dayNum}`;
-                  const isHovered = hoveredDay?.cellKey === cellKey;
+                  const isSelected = selectedDate === dayStr;
 
                   return (
                     <div
                       key={dayNum}
-                      className={`heatmap-day tier-${tier} ${!isInRange ? 'out-of-range' : ''}`}
-                      onMouseEnter={() => {
+                      className={`heatmap-day tier-${tier} ${!isInRange ? 'out-of-range' : ''} ${
+                        isSelected ? 'selected' : ''
+                      }`}
+                      onClick={() => {
                         if (isInRange && dayData) {
-                          setHoveredDay({
-                            date: dayStr,
-                            completed: dayData.completed_count,
-                            scheduled: dayData.scheduled_count,
-                            score:
-                              dayData.daily_score !== null
-                                ? Math.round(dayData.daily_score * 100)
-                                : 0,
-                            cellKey,
-                          });
+                          setSelectedDate(selectedDate === dayStr ? null : dayStr);
                         }
                       }}
-                      onMouseLeave={() => setHoveredDay(null)}
+                      title={
+                        isInRange && dayData
+                          ? `${dayStr}: ${dayData.completed_count}/${dayData.scheduled_count} completed`
+                          : undefined
+                      }
                     >
                       {dayNum}
                       {isPerfect && <span className="heatmap-star">★</span>}
-
-                      {isHovered && (
-                        <div className="heatmap-tooltip">
-                          {hoveredDay.date}: {hoveredDay.completed} of {hoveredDay.scheduled}{' '}
-                          completed ({hoveredDay.score}%)
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -181,12 +162,18 @@ export default function ProgressPage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  const formatDateFull = (dateStr: string) => {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
   const sortedHabits = getSortedHabits();
 
   return (
     <div className="progress-page">
       <div className="today-header">
-        <h2 className="today-title">Progress & Performance</h2>
+        <h2 className="today-title text-title">Progress & Performance</h2>
       </div>
 
       {/* Range Selector Bar */}
@@ -214,12 +201,48 @@ export default function ProgressPage() {
         </div>
       </div>
 
+      {/* Selected Date Header Badge if Active */}
+      {selectedDate && (
+        <div className="date-detail-header" style={{ marginBottom: '1rem', marginTop: '0.5rem' }}>
+          <div className="date-detail-title-group">
+            <span className="date-detail-date-badge">
+              📅 Selected Date: {formatDateFull(selectedDate)}
+            </span>
+            {selectedDayData && (
+              <span className="text-caption">
+                ({selectedDayData.completed_count} of {selectedDayData.scheduled_count} completed)
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            className="clear-selection-btn"
+            onClick={() => setSelectedDate(null)}
+          >
+            ✕ Clear Selection (Show All)
+          </button>
+        </div>
+      )}
+
       {/* Main Progress Content */}
       {isLoading ? (
-        <div className="today-loading">Loading analytics...</div>
+        <div className="skeleton-card" style={{ height: '220px', justifyContent: 'center' }}>
+          <div className="skeleton-line" style={{ width: '40%', marginBottom: '12px' }} />
+          <div className="skeleton-line" style={{ width: '90%' }} />
+          <div className="skeleton-line" style={{ width: '70%', marginTop: '12px' }} />
+        </div>
       ) : !data ? (
-        <div className="empty-state">
-          <span className="empty-text">No analytics data found.</span>
+        <div className="empty-state-improved">
+          <div className="empty-state-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <line x1="18" y1="20" x2="18" y2="10"/>
+              <line x1="12" y1="20" x2="12" y2="4"/>
+              <line x1="6" y1="20" x2="6" y2="14"/>
+              <line x1="2" y1="20" x2="22" y2="20"/>
+            </svg>
+          </div>
+          <div className="empty-state-headline">No data yet</div>
+          <div className="empty-state-subtitle">Start checking in daily to see your progress here.</div>
         </div>
       ) : (
         <>
@@ -264,13 +287,16 @@ export default function ProgressPage() {
             </div>
           </div>
 
-          {/* Stages 11 & 12: Charts Section */}
+          {/* Charts Section */}
           <div className="charts-row">
             <div className="chart-panel">
-              <div className="chart-title">Completion Breakdown</div>
+              <div className="chart-title">
+                {selectedDate ? `Completion Breakdown (${selectedDate})` : 'Completion Breakdown'}
+              </div>
               <PieChart
                 summary={data.summary}
                 habitBreakdown={data.habit_breakdown}
+                selectedDayData={selectedDayData}
                 isLoading={isLoading}
               />
             </div>
@@ -280,14 +306,112 @@ export default function ProgressPage() {
                 days={data.days}
                 range={range}
                 habitBreakdown={data.habit_breakdown}
+                selectedDate={selectedDate}
                 isLoading={isLoading}
               />
             </div>
           </div>
 
+          {/* Selected Date Detailed Breakdown Panel */}
+          {selectedDate && (
+            <div className="date-detail-panel">
+              <div className="date-detail-header">
+                <div className="date-detail-title-group">
+                  <h3 className="text-heading" style={{ margin: 0 }}>
+                    Detailed Breakdown for {formatDateFull(selectedDate)}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  className="clear-selection-btn"
+                  onClick={() => setSelectedDate(null)}
+                >
+                  ✕ Show Full Range
+                </button>
+              </div>
+
+              {!selectedDayData || !selectedDayData.items || selectedDayData.items.length === 0 ? (
+                <div className="empty-state" style={{ minHeight: 120 }}>
+                  <span className="empty-text">No habits or tasks were scheduled for this date.</span>
+                </div>
+              ) : (
+                <div className="date-detail-columns">
+                  {/* Completed Items */}
+                  <div className="date-detail-column">
+                    <div className="date-detail-column-title completed">
+                      <span>✓ Completed ({selectedDayData.items.filter((i) => i.status === 'completed').length})</span>
+                    </div>
+                    <div className="date-detail-list">
+                      {selectedDayData.items.filter((i) => i.status === 'completed').length === 0 ? (
+                        <div className="text-caption" style={{ padding: '0.5rem 0' }}>None completed on this day.</div>
+                      ) : (
+                        selectedDayData.items
+                          .filter((i) => i.status === 'completed')
+                          .map((item) => (
+                            <div key={`${item.item_type}-${item.id}`} className="date-detail-card">
+                              <div className="date-detail-card-left">
+                                <div className="date-detail-icon-badge completed">✓</div>
+                                <div className="date-detail-card-info">
+                                  <span className="date-detail-card-title">{item.title}</span>
+                                  <div className="date-detail-card-tags">
+                                    <span className={`date-tag ${item.item_type}`}>{item.item_type}</span>
+                                    {item.habit_type && <span className="date-tag habit">{item.habit_type}</span>}
+                                    {item.priority && item.priority !== 'none' && (
+                                      <span className={`date-tag priority-${item.priority}`}>{item.priority}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Not Completed Items */}
+                  <div className="date-detail-column">
+                    <div className="date-detail-column-title not-completed">
+                      <span>✕ Not Completed ({selectedDayData.items.filter((i) => i.status !== 'completed').length})</span>
+                    </div>
+                    <div className="date-detail-list">
+                      {selectedDayData.items.filter((i) => i.status !== 'completed').length === 0 ? (
+                        <div className="text-caption" style={{ padding: '0.5rem 0' }}>All scheduled items completed! 🎉</div>
+                      ) : (
+                        selectedDayData.items
+                          .filter((i) => i.status !== 'completed')
+                          .map((item) => (
+                            <div key={`${item.item_type}-${item.id}`} className="date-detail-card">
+                              <div className="date-detail-card-left">
+                                <div className="date-detail-icon-badge not-completed">
+                                  {item.status === 'skipped' ? '↷' : '✕'}
+                                </div>
+                                <div className="date-detail-card-info">
+                                  <span className="date-detail-card-title">{item.title}</span>
+                                  <div className="date-detail-card-tags">
+                                    <span className={`date-tag ${item.item_type}`}>{item.item_type}</span>
+                                    {item.habit_type && <span className="date-tag habit">{item.habit_type}</span>}
+                                    {item.priority && item.priority !== 'none' && (
+                                      <span className={`date-tag priority-${item.priority}`}>{item.priority}</span>
+                                    )}
+                                    <span className="text-caption" style={{ textTransform: 'capitalize' }}>
+                                      ({item.status})
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Habit Breakdown Table */}
           <div>
-            <div className="recap-section-title" style={{ marginTop: '1rem' }}>
+            <div className="recap-section-title" style={{ marginTop: '1.5rem' }}>
               Habit Performance Breakdown
             </div>
             {sortedHabits.length === 0 ? (
