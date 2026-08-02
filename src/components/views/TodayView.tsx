@@ -117,11 +117,9 @@ export default function TodayView() {
   const afternoonHabits = orderedHabits.filter((h) => habitMatchesSection(h, 'afternoon'));
   const eveningHabits = orderedHabits.filter((h) => habitMatchesSection(h, 'evening'));
 
-  const morningTasks = orderedTasks.filter((t) => !t.due_time || t.due_time < '12:00');
-  const afternoonTasks = orderedTasks.filter(
-    (t) => !t.due_time || (t.due_time >= '12:00' && t.due_time < '17:00')
-  );
-  const eveningTasks = orderedTasks.filter((t) => !t.due_time || t.due_time >= '17:00');
+  const morningTasks = orderedTasks.filter((t) => t.time_of_day === 'morning');
+  const afternoonTasks = orderedTasks.filter((t) => t.time_of_day === 'afternoon');
+  const eveningTasks = orderedTasks.filter((t) => t.time_of_day === 'evening');
 
   const hasMorning = morningHabits.length > 0 || morningTasks.length > 0;
   const hasAfternoon = afternoonHabits.length > 0 || afternoonTasks.length > 0;

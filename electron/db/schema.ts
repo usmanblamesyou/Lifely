@@ -70,6 +70,7 @@ export function initSchema(db: Database.Database): void {
       status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'completed', 'skipped')),
       area_id INTEGER REFERENCES areas(id) ON DELETE SET NULL,
       priority TEXT CHECK(priority IN ('low', 'medium', 'high', NULL)),
+      time_of_day TEXT NOT NULL DEFAULT 'morning' CHECK(time_of_day IN ('morning', 'afternoon', 'evening')),
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );

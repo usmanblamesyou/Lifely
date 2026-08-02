@@ -961,10 +961,10 @@ export function setupIpcHandlers(): void {
     const stmt = db.prepare(`
       INSERT INTO tasks (
         title, notes, due_date, due_time, status, priority,
-        repeat_type, repeat_days, checklist_json, created_at, updated_at
+        repeat_type, repeat_days, checklist_json, time_of_day, created_at, updated_at
       ) VALUES (
         ?, ?, ?, ?, 'pending', ?,
-        ?, ?, ?, ?, ?
+        ?, ?, ?, ?, ?, ?
       )
     `);
 
@@ -977,6 +977,7 @@ export function setupIpcHandlers(): void {
       data.repeat_type || 'none',
       repeatDaysStr,
       checklistJsonStr,
+      data.time_of_day || 'morning',
       now,
       now
     );
@@ -1133,7 +1134,7 @@ export function setupIpcHandlers(): void {
     const now = new Date().toISOString();
     const {
       task_id, notes, due_date, due_time, priority, repeat_type,
-      repeat_days, checklist_items, color,
+      repeat_days, checklist_items, color, time_of_day,
     } = data;
 
     const repeatDaysStr = repeat_days && repeat_days.length > 0 ? JSON.stringify(repeat_days) : null;
@@ -1146,13 +1147,13 @@ export function setupIpcHandlers(): void {
       UPDATE tasks SET
         notes = ?, due_date = ?, due_time = ?, priority = ?,
         repeat_type = ?, repeat_days = ?, checklist_json = ?,
-        color = ?, updated_at = ?
+        color = ?, time_of_day = ?, updated_at = ?
       WHERE id = ?
     `).run(
       notes || null, due_date, due_time || null,
       priority || null, repeat_type || 'none',
       repeatDaysStr, checklistJsonStr,
-      color || null, now,
+      color || null, time_of_day || 'morning', now,
       task_id
     );
 

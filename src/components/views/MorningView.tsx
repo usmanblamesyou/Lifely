@@ -49,7 +49,7 @@ export default function MorningView() {
 
         const filteredHabits = (habitsRes || []).filter(habitMatchesMorning);
         const filteredTasks = (tasksRes || []).filter(
-          (t: Task) => !t.due_time || t.due_time < '12:00'
+          (t: Task) => t.time_of_day === 'morning'
         );
 
         setHabits(filteredHabits);
@@ -257,7 +257,7 @@ export default function MorningView() {
         onClose={() => { setIsTaskModalOpen(false); setEditTask(undefined); }}
         onSuccess={fetchForDate}
         initialDueDate={dateString}
-        initialDueTime="09:00"
+        initialTimeOfDay="morning"
         editTask={editTask}
       />
     </div>

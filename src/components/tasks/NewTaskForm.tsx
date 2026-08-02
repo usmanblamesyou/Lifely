@@ -5,6 +5,7 @@ import {
   Task,
   TaskPriority,
   TaskRepeatType,
+  TaskTimeOfDay,
   CreateTaskInput,
   UpdateTaskInput,
 } from '../../types/task';
@@ -17,6 +18,7 @@ interface NewTaskFormProps {
   onSuccess: () => void;
   initialDueDate?: string;
   initialDueTime?: string;
+  initialTimeOfDay?: TaskTimeOfDay;
   editTask?: Task;
 }
 
@@ -37,6 +39,12 @@ const PRIORITY_OPTIONS = [
   { label: 'High', value: 'high' },
 ];
 
+const TIME_OF_DAY_OPTIONS = [
+  { label: 'Morning', value: 'morning' },
+  { label: 'Afternoon', value: 'afternoon' },
+  { label: 'Evening', value: 'evening' },
+];
+
 const REPEAT_OPTIONS = [
   { label: 'None', value: 'none' },
   { label: 'Daily', value: 'daily' },
@@ -50,6 +58,7 @@ export default function NewTaskForm({
   onSuccess,
   initialDueDate,
   initialDueTime,
+  initialTimeOfDay,
   editTask,
 }: NewTaskFormProps) {
   const isEditMode = Boolean(editTask);
@@ -87,6 +96,9 @@ export default function NewTaskForm({
     editTask?.checklist_json ?? []
   );
   const [color, setColor] = useState<string | null>(editTask?.color ?? null);
+  const [timeOfDay, setTimeOfDay] = useState<TaskTimeOfDay>(
+    editTask?.time_of_day ?? initialTimeOfDay ?? 'morning'
+  );
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -168,6 +180,7 @@ export default function NewTaskForm({
           repeat_days: finalRepeatDays,
           checklist_items: checklistItems.filter((i) => i.trim().length > 0),
           color,
+          time_of_day: timeOfDay,
         };
         if (typeof window !== 'undefined' && window.electronAPI?.tasks) {
           await window.electronAPI.tasks.update(payload);
@@ -184,6 +197,7 @@ export default function NewTaskForm({
           repeat_days: finalRepeatDays,
           checklist_items: checklistItems.filter((i) => i.trim().length > 0),
           color,
+          time_of_day: timeOfDay,
         };
         if (typeof window !== 'undefined' && window.electronAPI?.tasks) {
           await window.electronAPI.tasks.create(payload);
@@ -272,6 +286,17 @@ export default function NewTaskForm({
                 className="form-input"
               />
             </div>
+          </div>
+
+          {/* Time of Day */}
+          <div className="form-group">
+            <label className="form-label">Time of Day</label>
+            <CustomSelect
+              id="select-task-time-of-day"
+              value={timeOfDay}
+              onChange={(val) => setTimeOfDay(val as TaskTimeOfDay)}
+              options={TIME_OF_DAY_OPTIONS}
+            />
           </div>
 
           {/* Priority */}

@@ -49,7 +49,7 @@ export default function EveningView() {
 
         const filteredHabits = (habitsRes || []).filter(habitMatchesEvening);
         const filteredTasks = (tasksRes || []).filter(
-          (t: Task) => !t.due_time || t.due_time >= '17:00'
+          (t: Task) => t.time_of_day === 'evening'
         );
 
         setHabits(filteredHabits);
@@ -202,7 +202,7 @@ export default function EveningView() {
       <NewTaskForm
         isOpen={isTaskModalOpen}
         onClose={() => { setIsTaskModalOpen(false); setEditTask(undefined); }}
-        onSuccess={fetchForDate} initialDueDate={dateString} initialDueTime="19:00"
+        onSuccess={fetchForDate} initialDueDate={dateString} initialTimeOfDay="evening"
         editTask={editTask}
       />
     </div>

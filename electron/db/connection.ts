@@ -64,6 +64,9 @@ export function initDatabase(): Database.Database {
   try { dbInstance.exec('ALTER TABLE habits ADD COLUMN color TEXT'); } catch {}
   try { dbInstance.exec('ALTER TABLE tasks ADD COLUMN position INTEGER NOT NULL DEFAULT 0'); } catch {}
   try { dbInstance.exec('ALTER TABLE tasks ADD COLUMN color TEXT'); } catch {}
+  // time_of_day: existing tasks default to 'morning' — they were already appearing
+  // in the Morning section (the old `!t.due_time` fallback matched morning first).
+  try { dbInstance.exec("ALTER TABLE tasks ADD COLUMN time_of_day TEXT NOT NULL DEFAULT 'morning'"); } catch {}
 
   return dbInstance;
 }

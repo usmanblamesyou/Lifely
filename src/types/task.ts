@@ -1,6 +1,7 @@
 export type TaskPriority = 'low' | 'medium' | 'high' | null;
 export type TaskStatus = 'pending' | 'completed' | 'skipped';
 export type TaskRepeatType = 'none' | 'daily' | 'weekly' | 'monthly';
+export type TaskTimeOfDay = 'morning' | 'afternoon' | 'evening';
 
 export interface Task {
   id: number;
@@ -17,6 +18,7 @@ export interface Task {
   last_skipped_date: string | null;
   position: number;
   color: string | null;
+  time_of_day: TaskTimeOfDay;
   created_at: string;
   updated_at: string;
 }
@@ -31,6 +33,7 @@ export interface CreateTaskInput {
   repeat_days?: number[] | null;
   checklist_items: string[];
   color?: string | null;
+  time_of_day: TaskTimeOfDay;
 }
 
 export interface UpdateTaskInput {
@@ -43,6 +46,7 @@ export interface UpdateTaskInput {
   repeat_days: number[] | null;
   checklist_items: string[];
   color: string | null;
+  time_of_day: TaskTimeOfDay;
 }
 
 export interface UpdateTaskStatusInput {
