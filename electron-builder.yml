@@ -33,11 +33,20 @@ nsis:
 mac:
   target:
     - target: dmg
-  icon: build/icons/icon.icns
+      arch:
+        - universal
   category: public.app-category.productivity
+  icon: build/icons/icon.icns
+  hardenedRuntime: false
+  gatekeeperAssess: false
 
 linux:
   target:
     - target: AppImage
   icon: build/icons/icon.png
   category: Utility
+
+publish:
+  provider: github
+  owner: usmanblamesyou
+  repo: Lifely

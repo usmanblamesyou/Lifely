@@ -16,7 +16,8 @@
     "postinstall": "electron-builder install-app-deps",
     "rebuild": "electron-rebuild",
     "generate-icons": "node scripts/generate-icons.js",
-    "dist": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder"
+    "dist": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --publish always",
+    "dist:mac": "electron-builder --mac --universal --publish always"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.0",
