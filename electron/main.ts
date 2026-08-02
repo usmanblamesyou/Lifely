@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import { initDatabase } from './db/connection';
@@ -12,9 +12,11 @@ function createWindow(): void {
   setupIpcHandlers();
 
   const isPackaged = app.isPackaged;
-  const iconPath = path.join(__dirname, '../build/icons/icon.ico');
+  const iconPath = process.platform === 'darwin'
+    ? path.join(__dirname, '../build/icons/icon.icns')
+    : path.join(__dirname, '../build/icons/icon.ico');
 
-  mainWindow = new BrowserWindow({
+  const winOptions: Electron.BrowserWindowConstructorOptions = {
     width: isPackaged ? 1200 : 1000,
     height: isPackaged ? 800 : 700,
     minWidth: isPackaged ? 900 : undefined,
@@ -28,9 +30,20 @@ function createWindow(): void {
       nodeIntegration: false,
       sandbox: false,
     },
-  });
+  };
 
-  mainWindow.setMenuBarVisibility(false);
+  // macOS: native inset title bar with traffic-light controls
+  if (process.platform === 'darwin') {
+    winOptions.titleBarStyle = 'hiddenInset';
+  }
+
+  mainWindow = new BrowserWindow(winOptions);
+
+  // Hide the window-level menu bar on Windows/Linux; on macOS the menu is
+  // system-level and setMenuBarVisibility is a no-op, but we gate it anyway.
+  if (process.platform !== 'darwin') {
+    mainWindow.setMenuBarVisibility(false);
+  }
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
@@ -50,6 +63,47 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   createWindow();
+
+  // macOS native application menu (gives Cmd+C/V/Z, Hide, Quit, etc.)
+  if (process.platform === 'darwin') {
+    const menu = Menu.buildFromTemplate([
+      {
+        label: app.name,
+        submenu: [
+          { role: 'about' },
+          { type: 'separator' },
+          { role: 'services' },
+          { type: 'separator' },
+          { role: 'hide' },
+          { role: 'hideOthers' },
+          { role: 'unhide' },
+          { type: 'separator' },
+          { role: 'quit' },
+        ],
+      },
+      {
+        label: 'Edit',
+        submenu: [
+          { role: 'undo' },
+          { role: 'redo' },
+          { type: 'separator' },
+          { role: 'cut' },
+          { role: 'copy' },
+          { role: 'paste' },
+          { role: 'selectAll' },
+        ],
+      },
+      {
+        label: 'Window',
+        submenu: [
+          { role: 'minimize' },
+          { role: 'close' },
+          { role: 'front' },
+        ],
+      },
+    ]);
+    Menu.setApplicationMenu(menu);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

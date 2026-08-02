@@ -2473,3 +2473,41 @@ textarea {
   from { opacity: 0.4; }
   to   { opacity: 0.9; }
 }
+
+/* ======================================================================
+   macOS-only: drag regions + traffic-light clearance
+   All rules are gated on html.platform-mac, which is set synchronously
+   in preload.ts only when process.platform === 'darwin'.
+   On Windows/Linux the class is never added → every rule below is inert.
+   ====================================================================== */
+
+/* Topbar and sidebar-header become window-drag handles on mac.
+   sidebar-header is currently unused in the DOM but included for
+   forward-compatibility; the rule is harmless while absent. */
+html.platform-mac .topbar,
+html.platform-mac .sidebar-header {
+  -webkit-app-region: drag;
+}
+
+/* Restore pointer events for every interactive descendant inside drag regions
+   so clicks on buttons, links, and inputs are not swallowed by the OS. */
+html.platform-mac .topbar button,
+html.platform-mac .topbar a,
+html.platform-mac .topbar input,
+html.platform-mac .topbar select,
+html.platform-mac .topbar label,
+html.platform-mac .sidebar-header button,
+html.platform-mac .sidebar-header a,
+html.platform-mac .sidebar-header input,
+html.platform-mac .sidebar-header select,
+html.platform-mac .sidebar-header label {
+  -webkit-app-region: no-drag;
+}
+
+/* Push the sidebar nav down to clear the macOS traffic-light buttons.
+   With titleBarStyle: hiddenInset the lights sit at y≈12 and are 12px tall;
+   36px total top padding gives comfortable clearance.
+   This overrides the base padding-top: 8px rule via higher specificity. */
+html.platform-mac .sidebar {
+  padding-top: 36px;
+}

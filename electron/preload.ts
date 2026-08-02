@@ -24,6 +24,15 @@ try {
   console.error('Failed synchronous theme initialization in preload:', e);
 }
 
+// macOS: stamp a class on <html> synchronously before React hydrates so that
+// mac-only CSS rules (drag regions, traffic-light clearance) can be gated on
+// html.platform-mac without ever activating on Windows/Linux.
+// process.platform is available here because sandbox: false keeps Node.js
+// accessible in the preload context even with contextIsolation: true.
+if (process.platform === 'darwin') {
+  document.documentElement.classList.add('platform-mac');
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   habits: {
     create: (data: any) => ipcRenderer.invoke('habits:create', data),

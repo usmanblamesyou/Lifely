@@ -50,3 +50,4 @@ publish:
   provider: github
   owner: usmanblamesyou
   repo: Lifely
+  releaseType: release
